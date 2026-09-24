@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="uk" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><rect x='6' y='6' width='52' height='52' rx='6' ry='6' fill='%23ffffff' stroke='%23111827' stroke-width='3'/><path d='M46 6 L58 6 L58 18' fill='none' stroke='%23111827' stroke-width='2'/><rect x='14' y='20' width='36' height='3' rx='1.5' fill='%23111827'/><rect x='14' y='28' width='30' height='3' rx='1.5' fill='%23111827'/><rect x='14' y='36' width='24' height='3' rx='1.5' fill='%23111827'/></svg>" type="image/svg+xml">
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="css/trainer.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>Sentence Mixer — Тренування</title>
+</head>
+
+<body class="trainer-page">
+    <nav id="navbar">
+        <ul>
+            <li><a href="index.html" class="active">Тренування</a></li>
+            <li><a href="pages/editor.html">Створити список</a></li>
+            <li><a href="pages/list.html" target="_blank">Оглянути список</a></li>
+            <li><button class="load-replace-open-modal">Завантажити список</button></li>
+            <li><button class="save-selected-open-modal">Зберегти вибране</button></li>
+        </ul>
+    </nav>
+
+    <main id="trainer">
+        <button id="trainerVoiceBtn" class="trainer-corner-btn" title="Проголосити">
+            <div class="speaker-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+            </div>
+        </button>
+        <button id="settings-btn" class="trainer-corner-btn settings-btn" title="Налаштування">⚙️</button>
+        <button id="trainer-repeat-btn" class="trainer-corner-btn" title="Повторити">+</button>
+
+        <h2 id="sentence">Завантаження...</h2>
+
+        <div class="input-field">
+            <div class="count-indicator">
+                <span id="sentence-count"></span>
+            </div>
+            <div class="answer-row">
+                <button id="skip-btn">Пропустити</button>
+                <div class="input-wrapper">
+                    <div id="input-overlay" class="input-overlay"></div>
+                    <input type="text" id="user-input" autocomplete="off">
+                    <button id="voice-input-btn" class="voice-input-btn" title="Голосовий ввід">
+                        <div class="microphone-icon"></div>
+                    </button>
+                </div>
+                <button id="hint-btn">Підказка</button>
+            </div>
+        </div>
+
+        <div id="settings" class="hide">
+            <div class="settings-grid">
+                <div class="controls">
+                    <label for="voice-select">Голос:</label>
+                    <select id="voice-select"></select>
+                </div>
+                <div class="controls">
+                    <label for="speed">Швидкість: <span id="speed-value" class="value">1×</span></label>
+                    <input type="range" id="speed" min="0.5" max="2" step="0.1" value="1">
+                </div>
+                <div class="controls">
+                    <label for="pitch">Тон: <span id="pitch-value" class="value">1×</span></label>
+                    <input type="range" id="pitch" min="0.5" max="2" step="0.1" value="1">
+                </div>
+                <div class="controls">
+                    <label for="volume">Гучність: <span id="volume-value" class="value">1</span></label>
+                    <input type="range" id="volume" min="0" max="1" step="0.1" value="1">
+                </div>
+            </div>
+
+            <div class="shortcuts-info">
+                <h3>⌨️ Гарячі клавіші</h3>
+                <ul>
+                    <li><span>F12 або Ctrl+Enter</span>Пропустити речення</li>
+                    <li><span>F8</span>Підказка</li>
+                    <li><span>F9</span>Зберегти речення</li>
+                    <li><span>F10</span>Голосовий ввід</li>
+                    <li><span>Escape</span>Зупинити запис</li>
+                    <li><span>Enter</span>Закрити підказку</li>
+                </ul>
+            </div>
+
+            <div class="voice-commands-info">
+                <h3>🎙️ Голосові команди</h3>
+                <ul>
+                    <li><span>come up</span>Показати підказку</li>
+                    <li><span>hide it</span>Приховати підказку</li>
+                    <li><span>next point</span>Пропустити речення</li>
+                    <li><span>save it</span>Зберегти речення</li>
+                    <li><span>say it</span>Проголосити речення</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <div id="popup">
+        <div class="popup-content">
+            <button id="close-popup">×</button>
+            <div class="popup-text-container">
+                <span id="popup-text"></span>
+                <div id="example-text" class="example-text"></div>
+            </div>
+            <button id="repeat-sentence">+</button>
+        </div>
+    </div>
+
+    <div class="load-replace-modal modal">
+        <div class="modal-content">
+            <h3>Завантажити список речень</h3>
+            <div class="modal-control">
+                <input type="file" class="file-input" accept=".txt,.json" data-storage="sentences" />
+                <button class="close-modal-btn">Скасувати</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="save-modal modal">
+        <div class="modal-content">
+            <h3>Зберегти вибрані речення</h3>
+            <input type="text" id="file-name" placeholder="File name">
+            <div class="modal-control">
+                <button id="save-selected-to-file-btn" data-storage="saveSelected">Зберегти</button>
+                <button class="close-modal-btn">Скасувати</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="information-modal modal">
+        <div class="modal-content">
+            <p id="information-modal-text"></p>
+        </div>
+    </div>
+
+    <script src="js/theme.js"></script>
+    <script src="js/voiceEngine.js" defer></script>
+    <script src="js/modal.js" defer></script>
+    <script src="js/script.js" defer></script>
+</body>
+
+</html>

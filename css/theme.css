@@ -1,0 +1,102 @@
+/* ============================================================
+   Design tokens & theme management
+   ============================================================ */
+
+:root {
+  --accent: #6366f1;
+  --accent-2: #8b5cf6;
+  --accent-gradient: linear-gradient(135deg, #6366f1, #8b5cf6);
+  --accent-contrast: #ffffff;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.18);
+
+  --font: "Inter", "Segoe UI", Arial, sans-serif;
+  --transition: 0.2s ease;
+
+  /* Light theme */
+  --bg: #f4f5fb;
+  --bg-elevated: #ffffff;
+  --bg-elevated-2: #eef0f8;
+  --card-bg: #ffffff;
+  --border: #e3e5ef;
+  --text: #1c1e2b;
+  --text-muted: #6b6f82;
+  --input-bg: #ffffff;
+  --overlay: rgba(15, 17, 28, 0.45);
+  --chip-bg: #eef0ff;
+  --chip-text: #4f46e5;
+}
+
+[data-theme="dark"] {
+  --bg: #0f1117;
+  --bg-elevated: #171a23;
+  --bg-elevated-2: #1d2130;
+  --card-bg: #1a1d27;
+  --border: #2a2e3d;
+  --text: #e6e8f0;
+  --text-muted: #9aa0b5;
+  --input-bg: #10131b;
+  --overlay: rgba(0, 0, 0, 0.6);
+  --chip-bg: rgba(99, 102, 241, 0.18);
+  --chip-text: #a5b4fc;
+}
+
+/* ============================================================
+   Theme toggle button
+   ============================================================ */
+
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: all var(--transition);
+  color: var(--text);
+}
+
+.theme-toggle:hover {
+  transform: rotate(15deg) scale(1.05);
+  border-color: var(--accent);
+}
+
+.theme-toggle .sun-icon,
+.theme-toggle .moon-icon {
+  position: absolute;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.theme-toggle .sun-icon {
+  opacity: 0;
+  transform: scale(0.5) rotate(-90deg);
+}
+
+.theme-toggle .moon-icon {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+[data-theme="light"] .theme-toggle .sun-icon {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+[data-theme="light"] .theme-toggle .moon-icon {
+  opacity: 0;
+  transform: scale(0.5) rotate(90deg);
+}

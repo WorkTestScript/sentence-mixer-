@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="uk" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentence Mixer — Редактор</title>
+    <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'><rect x='6' y='6' width='52' height='52' rx='6' ry='6' fill='%23ffffff' stroke='%23111827' stroke-width='3'/><path d='M46 6 L58 6 L58 18' fill='none' stroke='%23111827' stroke-width='2'/><rect x='14' y='20' width='36' height='3' rx='1.5' fill='%23111827'/><rect x='14' y='28' width='30' height='3' rx='1.5' fill='%23111827'/><rect x='14' y='36' width='24' height='3' rx='1.5' fill='%23111827'/></svg>" type="image/svg+xml">
+    <link rel="stylesheet" href="../css/theme.css">
+    <link rel="stylesheet" href="../css/app.css">
+    <link rel="stylesheet" href="../css/editor.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <nav id="navbar">
+        <ul>
+            <li><a href="../index.html">Тренування</a></li>
+            <li><a href="editor.html" class="active">Створити список</a></li>
+            <li><a href="list.html">Оглянути список</a></li>
+            <li><button class="load-replace-open-modal">Список окремо</button></li>
+            <li><button class="load-merge-open-modal">Додати до існуючого</button></li>
+            <li><button id="clear-list-btn">Очистити список</button></li>
+            <li><button class="save-selected-open-modal">Зберегти список</button></li>
+            <li><button id="search-btn">Пошук</button></li>
+            <li><button id="increase-btn">+ 1</button></li>
+            <li><button id="decrease-btn">− 1</button></li>
+            <li><button id="hide-form-btn">Сховати форму</button></li>
+        </ul>
+    </nav>
+
+    <div class="editor-page">
+        <div class="form-wrapper">
+            <h2>Нове речення</h2>
+            <div id="form-container"></div>
+            <div class="form-buttons-editor">
+                <button id="save-button" class="btn btn-primary">Додати речення до списку</button>
+                <button id="json-add-button" class="btn">JSON</button>
+            </div>
+        </div>
+
+        <h2>Збережені речення</h2>
+        <div id="sentences-container"></div>
+    </div>
+
+    <div class="edit-modal" id="edit-modal">
+        <div class="edit-modal-content">
+            <h3>Редагувати речення</h3>
+            <input type="text" id="editEn" placeholder="English sentence">
+            <input type="text" id="editUa" placeholder="Ukrainian sentence">
+            <textarea id="editExample" placeholder="Example sentences (optional)" rows="3"></textarea>
+            <div class="edit-modal-buttons">
+                <button id="json-clipboard-btn">JSON</button>
+                <button id="edit-modal-delete">Видалити</button>
+                <button id="edit-modal-close">Скасувати</button>
+                <button id="edit-modal-save">Зберегти</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="delete-modal modal">
+        <div class="modal-content">
+            <h3>Видалити?</h3>
+            <div class="modal-control">
+                <button id="delete-btn">Видалити</button>
+                <button class="close-modal-btn">Скасувати</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="load-replace-modal modal">
+        <div class="modal-content">
+            <h3>Завантажити окремий список</h3>
+            <div class="modal-control">
+                <input type="file" class="file-input" accept=".txt,.json" data-storage="createdSentences" data-mode="replace" />
+                <button class="close-modal-btn">Скасувати</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="load-merge-modal modal">
+        <div class="modal-content">
+            <h3>Додати до існуючого списку</h3>
+            <div class="modal-control">
+                <input type="file" class="file-input" accept=".txt,.json" data-storage="createdSentences" data-mode="merge" />
+                <button class="close-modal-btn">Скасувати</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="save-modal modal">
+        <div class="modal-content">
+            <h3>Зберегти список</h3>
+            <input type="text" id="file-name" placeholder="File name">
+            <div class="modal-control">
+                <button id="save-selected-to-file-btn" data-storage="createdSentences">Зберегти</button>
+                <button class="close-modal-btn">Скасувати</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="search-modal modal">
+        <div class="modal-content">
+            <h3>Пошук</h3>
+            <input type="text" id="search-input" placeholder="Введіть текст для пошуку">
+            <div class="modal-control">
+                <button class="close-modal-btn">Скасувати</button>
+                <button id="search-submit-btn">Пошук</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="json-confirmation-modal modal">
+        <div class="modal-content">
+            <h3>Підтвердити заміну полів?</h3>
+            <div class="json-preview">
+                <div class="json-field"><strong>English:</strong> <span id="json-preview-en"></span></div>
+                <div class="json-field"><strong>Ukrainian:</strong> <span id="json-preview-ua"></span></div>
+                <div class="json-field"><strong>Example:</strong> <span id="json-preview-example"></span></div>
+            </div>
+            <div class="modal-control">
+                <button id="json-confirm-btn">Підтвердити</button>
+                <button id="json-cancel-btn">Відхилити</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="json-add-confirmation-modal modal">
+        <div class="modal-content">
+            <h3>Підтвердити додавання речень?</h3>
+            <div id="json-add-preview" class="json-preview"></div>
+            <div class="modal-control">
+                <button id="json-add-confirm-btn">Підтвердити</button>
+                <button id="json-add-cancel-btn">Відхилити</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="information-modal modal">
+        <div class="modal-content">
+            <p id="information-modal-text"></p>
+        </div>
+    </div>
+
+    <script src="../js/theme.js"></script>
+    <script src="../js/modal.js" defer></script>
+    <script src="../js/editor.js" defer></script>
+</body>
+
+</html>

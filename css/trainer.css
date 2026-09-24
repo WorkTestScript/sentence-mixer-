@@ -1,0 +1,463 @@
+/* ============================================================
+   Trainer (index) page styles
+   ============================================================ */
+
+.trainer-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#trainer {
+  width: auto;
+  max-width: none;
+  margin: 24px 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  padding: 48px 28px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+  position: relative;
+  flex: 1;
+}
+
+#sentence {
+  padding-right: 44px;
+  font-size: 26px;
+  font-weight: 600;
+  margin-bottom: 24px;
+  min-height: 1.6em;
+  letter-spacing: 0.2px;
+}
+
+/* Corner action buttons */
+.trainer-corner-btn {
+  position: absolute;
+  top: 12px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  z-index: 10;
+}
+
+.trainer-corner-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: scale(1.05);
+}
+
+#trainerVoiceBtn {
+  right: 12px;
+}
+
+#trainer-repeat-btn {
+  right: 58px;
+}
+
+#ignore-punctuation-icon {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  transition: all var(--transition);
+  user-select: none;
+}
+
+#ignore-punctuation-icon:hover {
+  color: var(--accent);
+  transform: scale(1.05);
+}
+
+#ignore-punctuation-icon.active {
+  color: var(--accent);
+  background: var(--chip-bg);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+}
+
+/* Input field */
+.input-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  margin: 0 auto 12px;
+  padding: 0;
+  width: 100%;
+}
+
+.count-indicator {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+}
+
+#sentence-count {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+  padding-right: 44px;
+}
+
+.answer-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.input-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.input-wrapper:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+#trainer input[type="text"] {
+  width: 100%;
+  padding: 16px 62px 16px 14px;
+  font-size: 22px;
+  border: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text);
+  text-align: center;
+  position: relative;
+}
+
+#trainer input[type="text"]:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.voice-input-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bg-elevated-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: all var(--transition);
+}
+
+.voice-input-btn:hover {
+  background: var(--chip-bg);
+}
+
+.voice-input-btn.recording {
+  background: var(--danger);
+  animation: pulse 1.5s infinite;
+}
+
+.voice-input-btn.recording .microphone-icon,
+.voice-input-btn.recording .microphone-icon::before,
+.voice-input-btn.recording .microphone-icon::after {
+  background-color: var(--accent-contrast);
+}
+
+@keyframes pulse {
+  0% {
+    transform: translateY(-50%) scale(1);
+  }
+  50% {
+    transform: translateY(-50%) scale(1.08);
+  }
+  100% {
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+/* Overlay for typing feedback */
+.input-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 16px 62px 16px 14px;
+  font-size: 22px;
+  text-align: center;
+  pointer-events: none;
+  white-space: pre-wrap;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  word-break: break-word;
+  color: var(--text-muted);
+}
+
+.input-overlay .error-char {
+  background-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  color: var(--text);
+  border-radius: 3px;
+}
+
+/* Action buttons */
+#skip-btn,
+#hint-btn {
+  flex: 0 0 auto;
+  padding: 12px 22px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition);
+  min-width: 130px;
+  color: var(--text);
+  background: var(--bg-elevated-2);
+}
+
+#skip-btn {
+  background: color-mix(in srgb, var(--warning) 14%, var(--bg-elevated));
+}
+
+#skip-btn:hover {
+  background: color-mix(in srgb, var(--warning) 26%, var(--bg-elevated));
+  border-color: var(--warning);
+}
+
+#hint-btn {
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-elevated));
+}
+
+#hint-btn:hover {
+  background: color-mix(in srgb, var(--accent) 26%, var(--bg-elevated));
+  border-color: var(--accent);
+}
+
+/* Settings panel */
+#settings {
+  margin-top: 30px;
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+  text-align: left;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.controls label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.controls .value {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.shortcuts-info,
+.voice-commands-info {
+  max-width: 640px;
+  margin: 24px auto 0;
+  text-align: left;
+  padding: 16px 20px;
+  background: var(--bg-elevated-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.shortcuts-info h3,
+.voice-commands-info h3 {
+  font-size: 15px;
+  margin-bottom: 10px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shortcuts-info ul,
+.voice-commands-info ul {
+  list-style: none;
+  padding: 0;
+  font-size: 14px;
+}
+
+.shortcuts-info li,
+.voice-commands-info li {
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.shortcuts-info span,
+.voice-commands-info span {
+  font-weight: 700;
+  color: var(--chip-text);
+  background: var(--chip-bg);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Settings toggle button (corner group, before the repeat button) */
+#settings-btn {
+  right: 104px;
+}
+
+#settings-btn.active {
+  background: var(--accent-gradient);
+  color: var(--accent-contrast);
+  border-color: transparent;
+}
+
+#settings-btn.active:hover {
+  color: var(--accent-contrast);
+}
+
+/* Popup (answer reveal) */
+#popup {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  backdrop-filter: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 900;
+  padding: 20px;
+}
+
+.popup-content {
+  position: relative;
+  display: flex;
+  text-align: center;
+  justify-content: center;
+  align-items: center;
+  width: min(680px, 92vw);
+  min-height: 220px;
+  padding: 48px 40px;
+  font-size: 24px;
+  font-weight: 600;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: modal-in 0.18s ease;
+}
+
+.popup-text-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.example-text {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.5;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+#popup button {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+#popup button:hover {
+  color: var(--accent);
+  background: var(--bg-elevated-2);
+}
+
+#close-popup {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+}
+
+#repeat-sentence {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  #trainer {
+    padding: 40px 16px;
+    margin: 16px;
+  }
+
+  #sentence {
+    font-size: 20px;
+  }
+
+  .answer-row {
+    flex-wrap: wrap;
+  }
+
+  .input-wrapper {
+    flex: 1 1 100%;
+  }
+
+  #skip-btn,
+  #hint-btn {
+    flex: 1;
+    min-width: 0;
+  }
+}
