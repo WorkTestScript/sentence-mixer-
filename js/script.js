@@ -44,6 +44,13 @@ let voiceEngineActive = false;
 // afterwards) so an already-answered word can't reappear in the field
 // once the next sentence has loaded.
 let ignoreRecognitionUntil = 0
+// When true, recognition.onend must NOT auto-restart the mic. We set this
+// while deliberately pausing recognition for TTS playback (see
+// pauseRecognitionForSpeech/resumeRecognitionAfterSpeech below), so the
+// mic is fully off - not just ignored - while the app is speaking. This
+// stops it from being able to pick up its own voice as an "answer" at
+// all, rather than trying to filter that out after the fact.
+let suppressAutoRestart = false
 
 // Input field event management
 let inputKeydownHandler = null;
@@ -223,10 +230,11 @@ function initSpeechRecognition() {
 
   recognition.onend = function () {
     // Only stop if permission was revoked or there's an error
-    // Otherwise, restart to keep listening
-    if (permissionGranted && isRecording) {
+    // Otherwise, restart to keep listening - unless we deliberately
+    // paused it ourselves to let the app speak without the mic hearing it
+    if (permissionGranted && isRecording && !suppressAutoRestart) {
       setTimeout(() => {
-        if (recognition && permissionGranted && isRecording) {
+        if (recognition && permissionGranted && isRecording && !suppressAutoRestart) {
           try {
             recognition.start()
           } catch (e) {
@@ -234,7 +242,7 @@ function initSpeechRecognition() {
           }
         }
       }, 100)
-    } else {
+    } else if (!suppressAutoRestart) {
       isListening = false
       stopVoiceRecording()
     }
@@ -254,6 +262,38 @@ function startVoiceRecording() {
       permissionGranted = false
     }
   }
+}
+
+// Fully stop the recognition engine while the app is speaking (a hint,
+// or the correct-answer confirmation), so the microphone cannot pick up
+// that speech and have it misread as the user's own answer. This is
+// deliberately a hard stop (not just ignoring results) - restarting
+// afterwards is handled by resumeRecognitionAfterSpeech.
+function pauseRecognitionForSpeech() {
+  if (!recognition || !isRecording) return
+  suppressAutoRestart = true
+  try {
+    recognition.stop()
+  } catch (e) {
+    console.log('Recognition pause failed:', e)
+  }
+}
+
+// Restart the recognition engine after the app has finished speaking.
+// Waits a short moment first so any trailing audio/echo from the speech
+// has already died out before the mic starts listening again.
+function resumeRecognitionAfterSpeech() {
+  if (!recognition || !isRecording) return
+  setTimeout(() => {
+    suppressAutoRestart = false
+    if (recognition && isRecording) {
+      try {
+        recognition.start()
+      } catch (e) {
+        // Already running is fine - nothing to do
+      }
+    }
+  }, 700)
 }
 
 // Stop voice recording
@@ -538,6 +578,7 @@ function hidePopup() {
   // so leftover audio from the answer we just spoke doesn't get written
   // into the (already cleared) field for the next sentence.
   ignoreRecognitionUntil = Date.now() + 700
+  resumeRecognitionAfterSpeech()
   popup.style.display = "none"
   userInput.focus()
   if (!hintMode) {
@@ -547,12 +588,14 @@ function hidePopup() {
 
 function speak(text, autoClose = false) {
   voiceEngineActive = true;
+  pauseRecognitionForSpeech()
   voiceEngine.speak(text, autoClose ? hidePopup : null, autoClose)
 }
 
 function speakCurrentSentence() {
   hintMode = true;
   voiceEngineActive = true;
+  pauseRecognitionForSpeech()
 
   if (voiceInputActive) {
     userInput.value = '';
@@ -774,6 +817,11 @@ function onSpeechFinished() {
   setTimeout(() => {
     voiceEngineActive = false;
     ignoreRecognitionUntil = Date.now() + 700
+    // hidePopup() (above) already resumes recognition when it runs; when
+    // hintMode is true it doesn't run, so resume it here instead.
+    if (hintMode) {
+      resumeRecognitionAfterSpeech()
+    }
     // userInput.value = '';
     // inputOverlay.innerHTML = '';
   }, 1000);
