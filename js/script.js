@@ -1,88 +1,92 @@
-/* ============================================================
-   Trainer (index) page logic
-   ============================================================ */
+const sentenceEl = document.getElementById("sentence")
+const userInput = document.getElementById("user-input")
+const inputOverlay = document.getElementById("input-overlay")
+const skipBtn = document.getElementById("skip-btn")
+const hintBtn = document.getElementById("hint-btn")
+const sentenceCount = document.getElementById("sentence-count")
+const voiceSelect = document.getElementById("voice-select")
+const speedControl = document.getElementById("speed")
+const pitchControl = document.getElementById("pitch")
+const volumeControl = document.getElementById("volume")
+const popup = document.getElementById("popup")
+const popupText = document.getElementById("popup-text")
+const exampleText = document.getElementById("example-text")
+const closePopup = document.getElementById("close-popup")
+const saveSentence = document.getElementById("repeat-sentence")
+const trainerRepeatBtn = document.getElementById("trainer-repeat-btn")
+const settingsBtn = document.getElementById("settings-btn")
+const settings = document.getElementById("settings")
+const navbar = document.getElementById("navbar")
+const trainerVoiceBtn = document.getElementById("trainerVoiceBtn")
+const voiceInputBtn = document.getElementById("voice-input-btn")
 
-const $ = (id) => document.getElementById(id)
-
-const sentenceEl = $("sentence")
-const userInput = $("user-input")
-const inputOverlay = $("input-overlay")
-const skipBtn = $("skip-btn")
-const hintBtn = $("hint-btn")
-const sentenceCount = $("sentence-count")
-const voiceSelect = $("voice-select")
-const speedControl = $("speed")
-const pitchControl = $("pitch")
-const volumeControl = $("volume")
-const popup = $("popup")
-const popupText = $("popup-text")
-const exampleText = $("example-text")
-const closePopup = $("close-popup")
-const saveSentence = $("repeat-sentence")
-const trainerRepeatBtn = $("trainer-repeat-btn")
-const settingsBtn = $("settings-btn")
-const settings = $("settings")
-const trainerVoiceBtn = $("trainerVoiceBtn")
-const voiceInputBtn = $("voice-input-btn")
-
-const readJSON = (key) => {
-  try {
-    const value = JSON.parse(localStorage.getItem(key))
-    return Array.isArray(value) ? value : []
-  } catch {
-    return []
-  }
-}
-
-const sentences = readJSON("sentences")
-let usedIndexes = readJSON("usedIndexes")
+const sentences = JSON.parse(localStorage.getItem("sentences")) || []
+let usedIndexes = JSON.parse(localStorage.getItem("usedIndexes")) || []
 let currentSentenceIndex = null
 let hintMode = false
-let ignorePunctuation = localStorage.getItem("ignorePunctuation") === "true"
+let randomNumber = null
+let previousNumber = null
+// Add a new state variable for ignoring punctuation
+let ignorePunctuation = JSON.parse(localStorage.getItem("ignorePunctuation")) || false
 
-/* Speech recognition state */
+// Speech Recognition variables
 let recognition = null
 let isRecording = false
-let voiceInputActive = false
-let permissionGranted = false
-let isListening = false
-let voiceEngineActive = false
+let voiceInputActive = false // Track if voice input is currently active
+let permissionGranted = false // Track if permission was granted
+let isListening = false // Track if we're currently listening
+let lastTranscript = "" // Store the last recognized transcript
+let voiceEngineActive = false;
+// Timestamp until which incoming speech-recognition results should be
+// ignored. This swallows results that the microphone picks up right after
+// the app finishes speaking (either genuine mic echo of the TTS voice, or
+// a recognition event that was queued during playback and only delivered
+// afterwards) so an already-answered word can't reappear in the field
+// once the next sentence has loaded.
+let ignoreRecognitionUntil = 0
 
-/* ============================================================
-   Speech recognition
-   ============================================================ */
+// Input field event management
+let inputKeydownHandler = null;
+let inputPasteHandler = null;
+let inputCutHandler = null;
+let inputDropHandler = null;
 
+// Initialize Speech Recognition (called once on page load)
 function initSpeechRecognition() {
-  if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
-    console.warn("Speech recognition not supported in this browser")
-    if (voiceInputBtn) voiceInputBtn.style.display = "none"
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    console.warn('Speech recognition not supported in this browser')
+    if (voiceInputBtn) {
+      voiceInputBtn.style.display = 'none'
+    }
     return
   }
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
   recognition = new SpeechRecognition()
-  recognition.continuous = true
-  recognition.interimResults = true
-  recognition.lang = "en-US"
 
-  recognition.onstart = () => {
+  recognition.continuous = true // Changed to true to keep it running
+  recognition.interimResults = true
+  recognition.lang = 'en-US' // English language
+
+  recognition.onstart = function () {
     isRecording = true
     voiceInputActive = true
     permissionGranted = true
     isListening = true
     if (voiceInputBtn) {
-      voiceInputBtn.classList.add("recording")
-      voiceInputBtn.title = "Зупинити запис"
+      voiceInputBtn.classList.add('recording')
+      voiceInputBtn.title = 'Зупинити запис'
     }
   }
 
-  recognition.onresult = (event) => {
+  recognition.onresult = function (event) {
     if (voiceEngineActive) return
+    if (Date.now() < ignoreRecognitionUntil) return
 
     userInput.value = ""
     inputOverlay.innerHTML = ""
-    let interimTranscript = ""
-    let finalTranscript = ""
+    let interimTranscript = ''
+    let finalTranscript = ''
     hintMode = true
 
     for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -95,61 +99,141 @@ function initSpeechRecognition() {
     }
 
     if (finalTranscript) {
-      const normalized = finalTranscript.toLowerCase().trim()
+      // Store the transcript
+      lastTranscript = finalTranscript
 
-      if (normalized.includes("next point")) {
+      // Check for voice commands first
+      const normalizedTranscript = finalTranscript.toLowerCase().trim()
+
+      // Check for "next point" command
+      if (normalizedTranscript.includes('next point') ||
+        normalizedTranscript.includes('next point.') ||
+        normalizedTranscript.includes('next point!') ||
+        normalizedTranscript.includes('next point?')) {
+
+        // Trigger skip logic
         skipSentence()
-        return
+        return // Exit early, don't process as regular answer
       }
-      if (normalized.includes("come up")) {
+
+      // Check for "come up" command
+      if (normalizedTranscript.includes('come up') ||
+        normalizedTranscript.includes('come up.') ||
+        normalizedTranscript.includes('come up!') ||
+        normalizedTranscript.includes('come up?')) {
+
+        // Trigger hint logic
         showHint()
-        return
+        return // Exit early, don't process as regular answer
       }
-      if (normalized.includes("hide it")) {
-        if (popup.style.display === "flex") {
+
+      // Check for "hide it" command
+      if (normalizedTranscript.includes('hide it') ||
+        normalizedTranscript.includes('hide it.') ||
+        normalizedTranscript.includes('hide it!') ||
+        normalizedTranscript.includes('hide it?')) {
+
+        // Close hint popup if it's open
+        if (popup.style.display === 'flex') {
           hidePopup()
-          return
+          return // Exit early, don't process as regular answer
         }
       }
-      if (normalized.includes("save it")) {
+
+      // Check for "save it" command
+      if (normalizedTranscript.includes('save it') ||
+        normalizedTranscript.includes('save it.') ||
+        normalizedTranscript.includes('save it!') ||
+        normalizedTranscript.includes('save it?')) {
+
+        // Trigger save sentence logic (same as trainer repeat button)
         saveSentenceToLocalStorageNoAdvance()
-        return
+        return // Exit early, don't process as regular answer
       }
-      if (normalized.includes("say it")) {
+      
+      // Check for "say it" command
+      if (normalizedTranscript.includes('say it') ||
+        normalizedTranscript.includes('say it.') ||
+        normalizedTranscript.includes('say it!') ||
+        normalizedTranscript.includes('say it?')) {
+
+        // Trigger speak current sentence logic (same as trainer voice button)
         speakCurrentSentence()
+        return // Exit early, don't process as regular answer
+      }
+
+      // While the hint popup is open, don't treat further speech as an
+      // answer attempt. checkAnswer() resets hintMode as a side effect
+      // even when the answer is wrong, and closing the hint afterwards
+      // (via "hide it", F8, the close button, etc.) would then
+      // incorrectly jump to the next sentence, even though nothing
+      // correct was ever said. Voice commands above still work as
+      // normal since they're checked first and return early.
+      if (popup.style.display === 'flex') {
         return
       }
 
+      // Visual feedback when text is recognized
       showRecognizedTextIndicator()
+
       userInput.value = finalTranscript
       checkAnswer()
+      // Let the popup system handle moving to next sentence
+      // Don't call getRandomSentence() here - let hidePopup() handle it
     } else if (interimTranscript) {
+      // Show interim results visually
       userInput.value = interimTranscript.trim()
+      // The overlay (not the native input) is what actually renders visible
+      // characters here - it was previously only refreshed on a *final*
+      // result, so a word being spoken looked invisible (only the caret
+      // moved) until recognition finalized it. Refresh it on every interim
+      // update too.
+      highlightErrors()
     }
   }
 
-  recognition.onerror = (event) => {
-    console.error("Speech recognition error:", event.error)
+  recognition.onerror = function (event) {
+    console.error('Speech recognition error:', event.error)
 
-    if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+    // Handle permission denied specifically
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
       permissionGranted = false
       isRecording = false
       voiceInputActive = false
       if (voiceInputBtn) {
-        voiceInputBtn.classList.remove("recording")
-        voiceInputBtn.title = "Голосовий ввід"
+        voiceInputBtn.classList.remove('recording')
+        voiceInputBtn.title = 'Голосовий ввід'
       }
-      showInformationModal(
-        "Доступ до мікрофона заборонено. Дозвольте доступ у налаштуваннях браузера та оновіть сторінку."
-      )
-    } else if (event.error === "no-speech") {
-      restartRecognition()
+      showInformationModal('Доступ до мікрофона заборонено. Будь ласка, дозвольте доступ до мікрофона в налаштуваннях браузера та оновіть сторінку.')
+    } else if (event.error === 'no-speech') {
+      // Ignore no-speech errors, just restart listening
+      if (permissionGranted && isRecording) {
+        setTimeout(() => {
+          if (recognition && permissionGranted) {
+            try {
+              recognition.start()
+            } catch (e) {
+              console.log('Recognition restart failed:', e)
+            }
+          }
+        }, 100)
+      }
     }
   }
 
-  recognition.onend = () => {
+  recognition.onend = function () {
+    // Only stop if permission was revoked or there's an error
+    // Otherwise, restart to keep listening
     if (permissionGranted && isRecording) {
-      restartRecognition()
+      setTimeout(() => {
+        if (recognition && permissionGranted && isRecording) {
+          try {
+            recognition.start()
+          } catch (e) {
+            console.log('Recognition restart failed:', e)
+          }
+        }
+      }, 100)
     } else {
       isListening = false
       stopVoiceRecording()
@@ -157,212 +241,277 @@ function initSpeechRecognition() {
   }
 }
 
-function restartRecognition() {
-  setTimeout(() => {
-    if (recognition && permissionGranted && isRecording) {
-      try {
-        recognition.start()
-      } catch (e) {
-        console.log("Recognition restart failed:", e)
-      }
-    }
-  }, 100)
-}
-
+// Start voice recording
 function startVoiceRecording() {
   if (!recognition) return
+
   try {
     recognition.start()
   } catch (error) {
-    console.error("Error starting speech recognition:", error)
-    if (error.name !== "InvalidStateError") {
+    console.error('Error starting speech recognition:', error)
+    // If already started, this is normal
+    if (error.name !== 'InvalidStateError') {
       permissionGranted = false
     }
   }
 }
 
+// Stop voice recording
 function stopVoiceRecording() {
   if (!recognition) return
+
   isRecording = false
-  voiceInputActive = false
+  voiceInputActive = false // Reset voice input active flag
   permissionGranted = false
   if (voiceInputBtn) {
-    voiceInputBtn.classList.remove("recording")
-    voiceInputBtn.title = "Голосовий ввід"
+    voiceInputBtn.classList.remove('recording')
+    voiceInputBtn.title = 'Голосовий ввід'
   }
+
   try {
     recognition.stop()
   } catch (error) {
-    console.error("Error stopping speech recognition:", error)
+    console.error('Error stopping speech recognition:', error)
   }
 }
 
+// Toggle voice recording with improved permission handling
 function toggleVoiceRecording() {
   if (isRecording) {
+    // Just stop listening, don't reset permission state
     isRecording = false
     voiceInputActive = false
     if (voiceInputBtn) {
-      voiceInputBtn.classList.remove("recording")
-      voiceInputBtn.title = "Голосовий ввід"
+      voiceInputBtn.classList.remove('recording')
+      voiceInputBtn.title = 'Голосовий ввід'
     }
+
     try {
       recognition.stop()
     } catch (error) {
-      console.error("Error stopping speech recognition:", error)
+      console.error('Error stopping speech recognition:', error)
     }
-    return
-  }
-
-  userInput.value = ""
-  inputOverlay.innerHTML = ""
-
-  if (!recognition) initSpeechRecognition()
-
-  const tryStart = () => {
-    isRecording = true
-    voiceInputActive = true
-    startVoiceRecording()
-  }
-
-  if (navigator.permissions && navigator.permissions.query) {
-    navigator.permissions
-      .query({ name: "microphone" })
-      .then((status) => {
-        if (status.state === "granted" || status.state === "prompt") {
-          tryStart()
-        } else {
-          showInformationModal(
-            "Доступ до мікрофона заборонено. Дозвольте доступ у налаштуваннях браузера."
-          )
-        }
-      })
-      .catch(tryStart)
   } else {
-    tryStart()
+    // Clear input for new voice input
+    userInput.value = ""
+    inputOverlay.innerHTML = ""
+
+    // Initialize speech recognition if not already done
+    if (!recognition) {
+      initSpeechRecognition()
+    }
+
+    // Check permission state first
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'microphone' }).then((permissionStatus) => {
+        if (permissionStatus.state === 'granted' || permissionStatus.state === 'prompt') {
+          // Start recording - this will prompt for permission if needed
+          isRecording = true
+          voiceInputActive = true
+          startVoiceRecording()
+        } else {
+          // Permission denied
+          showInformationModal('Доступ до мікрофона заборонено. Будь ласка, дозвольте доступ до мікрофона в налаштуваннях браузера.')
+        }
+      }).catch(() => {
+        // Fallback - just try to start
+        isRecording = true
+        voiceInputActive = true
+        startVoiceRecording()
+      })
+    } else {
+      // Fallback for older browsers
+      isRecording = true
+      voiceInputActive = true
+      startVoiceRecording()
+    }
   }
 }
 
-/* ============================================================
-   Ignore punctuation toggle
-   ============================================================ */
-
-function createIgnorePunctuationIcon() {
-  const icon = document.createElement("div")
-  icon.id = "ignore-punctuation-icon"
-  updatePunctuationIcon(icon)
-  icon.addEventListener("click", toggleIgnorePunctuation)
-  return icon
-}
-
-function updatePunctuationIcon(icon) {
-  if (!icon) return
-  icon.className = ignorePunctuation ? "active" : ""
-  icon.textContent = ".!?"
-  icon.title = ignorePunctuation
+// Create the ignore punctuation icon element
+const createIgnorePunctuationIcon = () => {
+  const iconContainer = document.createElement("div")
+  iconContainer.id = "ignore-punctuation-icon"
+  iconContainer.className = ignorePunctuation ? "active" : ""
+  iconContainer.innerHTML = ".!?"
+  iconContainer.title = ignorePunctuation
     ? "Ігнорування знаків пунктуації увімкнено"
     : "Ігнорування знаків пунктуації вимкнено"
+  iconContainer.style.position = "absolute"
+  iconContainer.style.top = "10px"
+  iconContainer.style.left = "10px"
+  iconContainer.style.cursor = "pointer"
+  iconContainer.style.fontSize = "16px"
+  iconContainer.style.padding = "5px"
+  iconContainer.style.borderRadius = "4px"
+  iconContainer.style.backgroundColor = "transparent"
+  iconContainer.style.border = "1px solid var(--dark-color)"
+
+  iconContainer.addEventListener("click", toggleIgnorePunctuation)
+
+  return iconContainer
 }
 
+// Toggle the ignore punctuation feature
 function toggleIgnorePunctuation() {
   ignorePunctuation = !ignorePunctuation
   localStorage.setItem("ignorePunctuation", JSON.stringify(ignorePunctuation))
-  updatePunctuationIcon($("ignore-punctuation-icon"))
+
+  const icon = document.getElementById("ignore-punctuation-icon")
+  if (icon) {
+    icon.className = ignorePunctuation ? "active" : ""
+    icon.innerHTML = ".!?"
+    icon.title = ignorePunctuation
+      ? "Ігнорування знаків пунктуації увімкнено"
+      : "Ігнорування знаків пунктуації вимкнено"
+    icon.style.backgroundColor = "transparent"
+  }
 }
 
-/* ============================================================
-   Answer checking & highlighting
-   ============================================================ */
-
+// Function to escape HTML characters
 function escapeHtml(text) {
-  const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }
-  return text.replace(/[&<>"']/g, (m) => map[m])
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+    ' ': '&nbsp;'
+  }
+  return text.replace(/[&<>"' ]/g, m => map[m])
 }
 
+// Function to highlight typing errors
 function highlightErrors() {
   if (currentSentenceIndex === null) return
 
-  const correct = sentences[currentSentenceIndex].en
-  const user = userInput.value
-  let html = ""
+  const correctAnswer = sentences[currentSentenceIndex].en
+  const userAnswer = userInput.value
 
-  for (let i = 0; i < user.length; i++) {
-    if (user[i] !== correct[i]) {
-      html += `<span class="error-char">${escapeHtml(user[i])}</span>`
+  let overlayHTML = ""
+
+  for (let i = 0; i < userAnswer.length; i++) {
+    const userChar = userAnswer[i]
+    const correctChar = correctAnswer[i]
+    const escapedChar = escapeHtml(userChar)
+
+    if (userChar !== correctChar) {
+      // Character is incorrect - wrap it in error span.
+      // The background/color are also set inline (not only via the
+      // .error-char class in style.css) because some older Chromium
+      // builds (e.g. the last Chrome versions still able to run on
+      // Windows 7) fail to paint a class-based background-color that
+      // relies on a CSS custom property (var(--primary-color)) on
+      // elements injected via innerHTML. Inline styles always win and
+      // don't depend on var() support or stylesheet load order.
+      overlayHTML += `<span class="error-char" style="background-color:#fd7878;color:#111827;border-radius:2px;">${escapedChar}</span>`
     } else {
-      html += escapeHtml(user[i])
+      // Character is correct - add transparent character
+      overlayHTML += escapedChar
     }
   }
-  inputOverlay.innerHTML = html
+
+  inputOverlay.innerHTML = overlayHTML
+
+  // Force a reflow/repaint. Older Chromium engines sometimes don't
+  // repaint newly inserted inline elements inside an absolutely
+  // positioned, flex-centered overlay until layout is recalculated -
+  // reading offsetHeight forces that recalculation immediately.
+  void inputOverlay.offsetHeight
 }
 
+// Modified function to check answer with punctuation ignoring option and case sensitivity
 function checkAnswer() {
   hintMode = false
   if (currentSentenceIndex === null) return
 
+  // Highlight errors first
   highlightErrors()
 
-  let correct = sentences[currentSentenceIndex].en.trim()
-  let user = userInput.value.trim()
+  let correctAnswer = sentences[currentSentenceIndex].en.trim()
+  let userAnswer = userInput.value.trim()
 
+  // If ignore punctuation is enabled, remove punctuation from both strings
   if (ignorePunctuation) {
-    const strip = (s) => s.replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim()
-    correct = strip(correct)
-    user = strip(user)
+    correctAnswer = correctAnswer.replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
+    userAnswer = userAnswer.replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim();
   }
 
-  const isCorrect = voiceInputActive
-    ? user.toLowerCase() === correct.toLowerCase()
-    : user === correct
+  // If voice input was used, ignore case; otherwise, consider case
+  let isCorrect = false
+  if (voiceInputActive) {
+    isCorrect = userAnswer.toLowerCase() === correctAnswer.toLowerCase()
+  } else {
+    isCorrect = userAnswer === correctAnswer
+  }
 
   if (isCorrect) {
     if (!usedIndexes.includes(currentSentenceIndex)) {
       usedIndexes.push(currentSentenceIndex)
       localStorage.setItem("usedIndexes", JSON.stringify(usedIndexes))
     }
+    // Ignore any recognition results from the moment we've confirmed the
+    // answer is correct until well after the popup closes. Without this,
+    // a result that was already "in flight" (e.g. the mic picking up the
+    // tail of the word, or the app's own spoken confirmation) can land
+    // just after the field was cleared and write the old word straight
+    // back into it, even while the popup is visible.
+    ignoreRecognitionUntil = Date.now() + 15000
     showPopup(sentences[currentSentenceIndex], true)
   }
 }
 
-/* ============================================================
-   Sentence flow
-   ============================================================ */
+function randomizer(num) {
+  if (num === 0) return 0
+  let newNumber
+  do {
+    newNumber = Math.floor(Math.random() * num)
+  } while (newNumber === previousNumber)
+  previousNumber = newNumber
+  return newNumber
+}
+
+// Voice settings functions now handled by voiceEngine
 
 function getRandomSentence() {
-  if (!sentences.length) {
-    sentenceEl.textContent = "Список порожній. Завантажте або створіть список."
-    sentenceCount.innerText = 0
-    return
-  }
+  if (!sentences.length) return
+  const count = sentences.length - usedIndexes.length
+  sentenceCount.innerText = count
+  let availableIndexes = sentences.map((_, index) => index).filter((index) => !usedIndexes.includes(index))
 
-  const available = sentences
-    .map((_, index) => index)
-    .filter((index) => !usedIndexes.includes(index))
-
-  if (available.length === 0) {
+  if (availableIndexes.length === 0) {
     showInformationModal("Усі речення використані!")
     localStorage.removeItem("usedIndexes")
     usedIndexes = []
     sentenceCount.innerText = sentences.length
-    currentSentenceIndex = 0
-  } else {
-    sentenceCount.innerText = available.length
-    currentSentenceIndex = available[Math.floor(Math.random() * available.length)]
+    availableIndexes = sentences.map((_, index) => index)
   }
+
+  if (count <= 1) currentSentenceIndex = availableIndexes[0]
+  else if (randomNumber !== null) currentSentenceIndex = availableIndexes[randomNumber]
+  else currentSentenceIndex = availableIndexes[Math.floor(Math.random() * availableIndexes.length)]
 
   sentenceEl.textContent = sentences[currentSentenceIndex].ua
   userInput.value = ""
   inputOverlay.innerHTML = ""
   userInput.focus()
   hintMode = false
+  randomNumber = null
 }
 
 function showPopup(text, autoClose = false) {
   popupText.textContent = text.en
-  if (voiceInputActive) {
-    userInput.value = ""
-    inputOverlay.innerHTML = ""
+  // Clear the field once the answer has been confirmed correct
+  // (autoClose) - this used to only happen for voice input, so typing
+  // the correct answer with the keyboard left the word sitting in the
+  // field until the popup closed. Don't clear it for the hint popup
+  // (autoClose === false), so keyboard users keep whatever they'd
+  // already typed while just checking the hint.
+  if (voiceInputActive || autoClose) {
+    userInput.value = '';
+    inputOverlay.innerHTML = '';
   }
-
+  // Show example if it exists and is not empty
   if (text.example && text.example.trim()) {
     exampleText.textContent = text.example
     exampleText.style.display = "block"
@@ -371,19 +520,24 @@ function showPopup(text, autoClose = false) {
   }
 
   popup.style.display = "flex"
-
-  if (!voiceInputActive || !hintMode) {
+  if ((!voiceInputActive && !isRecording) || !hintMode) {
     speak(text.en, autoClose)
-  } else if (autoClose) {
+  }
+  else if (autoClose) {
+    console.log("Auto-closing popup in 2 seconds")  
     setTimeout(() => {
       hidePopup()
-    }, 2000)
+    }, 2000);
   }
 }
 
 function hidePopup() {
   voiceEngine.stop()
-  voiceEngineActive = false
+  voiceEngineActive = false;
+  // Give the microphone a brief moment before trusting new results again,
+  // so leftover audio from the answer we just spoke doesn't get written
+  // into the (already cleared) field for the next sentence.
+  ignoreRecognitionUntil = Date.now() + 700
   popup.style.display = "none"
   userInput.focus()
   if (!hintMode) {
@@ -392,36 +546,38 @@ function hidePopup() {
 }
 
 function speak(text, autoClose = false) {
-  voiceEngineActive = true
-  voiceEngine.speak(text, autoClose ? hidePopup : null)
+  voiceEngineActive = true;
+  voiceEngine.speak(text, autoClose ? hidePopup : null, autoClose)
 }
 
 function speakCurrentSentence() {
-  if (currentSentenceIndex === null || !sentences[currentSentenceIndex]) return
-
-  hintMode = true
-  voiceEngineActive = true
+  hintMode = true;
+  voiceEngineActive = true;
 
   if (voiceInputActive) {
-    userInput.value = ""
-    inputOverlay.innerHTML = ""
+    userInput.value = '';
+    inputOverlay.innerHTML = '';
   }
 
-  voiceEngine.speak(sentences[currentSentenceIndex].en)
+  if (currentSentenceIndex !== null && sentences[currentSentenceIndex]) {
+    const currentSentence = sentences[currentSentenceIndex]
+    voiceEngine.speak(currentSentence.en)
+  }
 }
+
+// Voice loading now handled by voiceEngine
 
 function skipSentence() {
   if (currentSentenceIndex === null) return
 
+  // Mark current sentence as used (same as correct answer)
   if (!usedIndexes.includes(currentSentenceIndex)) {
     usedIndexes.push(currentSentenceIndex)
     localStorage.setItem("usedIndexes", JSON.stringify(usedIndexes))
+    hidePopup()
+    getRandomSentence()
   }
 
-  voiceEngine.stop()
-  voiceEngineActive = false
-  popup.style.display = "none"
-  getRandomSentence()
 }
 
 function showHint() {
@@ -431,165 +587,194 @@ function showHint() {
   }
 }
 
-/* ============================================================
-   Save sentence to saved list
-   ============================================================ */
-
-function pushToSaved() {
-  if (currentSentenceIndex === null) return
-  const current = sentences[currentSentenceIndex]
-  const stored = readJSON("saveSelected")
-
-  if (!current || stored.some((item) => item.ua === current.ua && item.en === current.en)) {
-    return false
-  }
-
-  stored.push({ ua: current.ua, en: current.en, example: current.example || "" })
-  localStorage.setItem("saveSelected", JSON.stringify(stored))
-  window.dispatchEvent(new Event("saveSelectedChanged"))
-  return true
-}
-
 function saveSentenceToLocalStorage() {
-  pushToSaved()
-  showInformationModal("Речення в списку")
+  const storedSentences = JSON.parse(localStorage.getItem("saveSelected")) || []
+  const currentSentence = sentences[currentSentenceIndex]
+  if (
+    currentSentence &&
+    !storedSentences.some((item) => item.ua === currentSentence.ua && item.en === currentSentence.en)
+  ) {
+    // Ensure we save in the new format with example property
+    const sentenceToSave = {
+      ua: currentSentence.ua,
+      en: currentSentence.en,
+      example: currentSentence.example || "",
+    }
+    storedSentences.push(sentenceToSave)
+    localStorage.setItem("saveSelected", JSON.stringify(storedSentences))
+    try {
+      // notify other modules to update UI
+      window.dispatchEvent(new Event('saveSelectedChanged'))
+    } catch (e) { }
+  }
+  showInformationModal("Речення в спискy")
   hidePopup()
   userInput.focus()
 }
 
+// Save current sentence to saveSelected WITHOUT advancing to the next sentence
 function saveSentenceToLocalStorageNoAdvance() {
-  pushToSaved()
-  showInformationModal("Речення в списку")
+  const storedSentences = JSON.parse(localStorage.getItem("saveSelected")) || []
+  const currentSentence = sentences[currentSentenceIndex]
+  if (
+    currentSentence &&
+    !storedSentences.some((item) => item.ua === currentSentence.ua && item.en === currentSentence.en)
+  ) {
+    const sentenceToSave = {
+      ua: currentSentence.ua,
+      en: currentSentence.en,
+      example: currentSentence.example || "",
+    }
+    storedSentences.push(sentenceToSave)
+    localStorage.setItem("saveSelected", JSON.stringify(storedSentences))
+    try { window.dispatchEvent(new Event('saveSelectedChanged')) } catch (e) { }
+  }
+  showInformationModal("Речення в спискy")
+  // Keep the current sentence visible; do not call hidePopup() or getRandomSentence()
   userInput.focus()
 }
 
-/* ============================================================
-   Init
-   ============================================================ */
-
-function showRecognizedTextIndicator() {
-  if (!userInput) return
-  userInput.style.transition = "background-color 0.3s ease"
-  userInput.style.backgroundColor = "rgba(34, 197, 94, 0.15)"
-  setTimeout(() => {
-    userInput.style.backgroundColor = "transparent"
-  }, 250)
-}
-
-function onSpeechFinished() {
-  setTimeout(() => {
-    voiceEngineActive = false
-  }, 1000)
-}
-
+// Initialize the application
 function initApp() {
-  const trainerDiv = $("trainer")
+  // Add the ignore punctuation icon to the trainer div
+  const trainerDiv = document.getElementById("trainer")
   if (trainerDiv) {
+    trainerDiv.style.position = "relative" // Ensure proper positioning
     trainerDiv.prepend(createIgnorePunctuationIcon())
   }
 
+  // Initialize voice engine
   voiceEngine.init(voiceSelect, speedControl, pitchControl, volumeControl)
+
+  // Set callback for when speech ends
   voiceEngine.setOnSpeechEndCallback(onSpeechFinished)
 
+  // Initialize speech recognition on page load but don't start it
+  // This allows us to keep the recognition object alive
   initSpeechRecognition()
+
   getRandomSentence()
 }
 
-/* ---------- Keyboard shortcuts ---------- */
+let settingsTimeout = null
 
-document.addEventListener("keydown", (e) => {
-  if (e.key === "F12" || (e.ctrlKey && e.key === "Enter")) {
+// Add event listener for keydown events
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.key === 'F12') {
     e.preventDefault()
     skipSentence()
     return
   }
 
-  if (e.key === "F8") {
-    e.preventDefault()
-    if (popup.style.display === "flex") {
+  if (e.key === 'F8') {
+    e.preventDefault();
+    if (popup.style.display === 'flex') {
       hidePopup()
     } else {
-      userInput.blur()
+      userInput.blur();
       showHint()
     }
   }
 
-  if (e.key === "F9") {
-    e.preventDefault()
-    saveSentenceToLocalStorageNoAdvance()
+  if (e.key === 'F9') {
+    e.preventDefault();
+    saveSentenceToLocalStorageNoAdvance();
   }
 
-  if (e.key === "F10") {
-    e.preventDefault()
-    toggleVoiceRecording()
+  if (e.key === 'F10') {
+    e.preventDefault();
+    toggleVoiceRecording();
   }
 
-  if (e.key === "Escape" && isRecording) {
-    e.preventDefault()
-    stopVoiceRecording()
+  if (e.key === 'Escape' && isRecording) {
+    e.preventDefault();
+    stopVoiceRecording();
   }
-
-  if (e.key === "Enter" && popup.style.display === "flex") {
-    hidePopup()
-  }
-})
-
-/* ---------- Settings panel ---------- */
+});
 
 settingsBtn.addEventListener("click", () => {
-  const isHidden = settings.classList.toggle("hide")
-  settingsBtn.classList.toggle("active", !isHidden)
-})
 
-/* ---------- Slider value indicators ---------- */
+  if (settingsTimeout !== null) {
+    clearTimeout(settingsTimeout)
+    settingsTimeout = null
+  }
 
-const showValue = (input, suffix = "") => {
-  const el = $(`${input.id}-value`)
-  if (el) el.textContent = `${input.value}${suffix}`
-}
+  settings.classList.toggle("hide")
+  navbar.classList.toggle("hide")
 
-speedControl.addEventListener("input", () => {
-  showValue(speedControl, "×")
-  voiceEngine.saveSettings()
+  if (!settings.classList.contains("hide") && !navbar.classList.contains("hide")) {
+    settingsTimeout = setTimeout(() => {
+      settings.classList.toggle("hide")
+      navbar.classList.toggle("hide")
+      settingsTimeout = null
+    }, 10000)
+  }
 })
-pitchControl.addEventListener("input", () => {
-  showValue(pitchControl, "×")
-  voiceEngine.saveSettings()
-})
-volumeControl.addEventListener("input", () => {
-  showValue(volumeControl, "")
-  voiceEngine.saveSettings()
-})
-
-/* ---------- UI events ---------- */
 
 document.addEventListener("click", (event) => {
-  if (
-    popup.style.display === "flex" &&
-    popup.contains(event.target) &&
-    !popup.querySelector(".popup-content").contains(event.target)
-  ) {
+  if (!popup.querySelector(".popup-content").contains(event.target) && popup.contains(event.target)) hidePopup()
+})
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && popup.style.display !== "" && popup.style.display === "flex") {
     hidePopup()
   }
 })
 
+speechSynthesis.addEventListener("voiceschanged", () => voiceEngine.loadVoices())
 userInput.addEventListener("input", checkAnswer)
 userInput.addEventListener("input", () => {
-  if (!isRecording) voiceInputActive = false
+  // When user types with keyboard, disable voice input mode
+  if (!isRecording) {
+    voiceInputActive = false
+  }
 })
 userInput.addEventListener("focus", () => {
-  if (popup.style.display === "flex") hidePopup()
+  if (popup.style.display === "flex") {
+    hidePopup()
+  }
 })
-
 skipBtn.addEventListener("click", skipSentence)
 hintBtn.addEventListener("click", showHint)
 closePopup.addEventListener("click", hidePopup)
 voiceSelect.addEventListener("change", () => voiceEngine.saveSettings())
+speedControl.addEventListener("input", () => voiceEngine.saveSettings())
+pitchControl.addEventListener("input", () => voiceEngine.saveSettings())
+volumeControl.addEventListener("input", () => voiceEngine.saveSettings())
 saveSentence.addEventListener("click", saveSentenceToLocalStorage)
-trainerRepeatBtn.addEventListener("click", saveSentenceToLocalStorageNoAdvance)
+if (trainerRepeatBtn) {
+  trainerRepeatBtn.addEventListener("click", saveSentenceToLocalStorageNoAdvance)
+}
 trainerVoiceBtn.addEventListener("click", speakCurrentSentence)
-voiceInputBtn.addEventListener("click", toggleVoiceRecording)
 
-speechSynthesis.addEventListener("voiceschanged", () => voiceEngine.loadVoices())
+// Voice input button event listener
+if (voiceInputBtn) {
+  voiceInputBtn.addEventListener("click", toggleVoiceRecording)
+}
 
+// Call initApp instead of directly calling loadVoices and getRandomSentence
 initApp()
+
+function showRecognizedTextIndicator() {
+  // Flash the input to show text was recognized
+  if (userInput) {
+    const originalBackground = userInput.style.backgroundColor
+    userInput.style.backgroundColor = '#E8F5E8'
+    userInput.style.transition = 'background-color 0.3s ease'
+
+    setTimeout(() => {
+      userInput.style.backgroundColor = originalBackground
+    }, 200)
+  }
+}
+
+// Method that gets called when voice engine finishes speaking
+function onSpeechFinished() {
+  if (!hintMode) hidePopup()
+  setTimeout(() => {
+    voiceEngineActive = false;
+    ignoreRecognitionUntil = Date.now() + 700
+    // userInput.value = '';
+    // inputOverlay.innerHTML = '';
+  }, 1000);
+}
