@@ -188,6 +188,17 @@ function initSpeechRecognition() {
       // Let the popup system handle moving to next sentence
       // Don't call getRandomSentence() here - let hidePopup() handle it
     } else if (interimTranscript) {
+      // Same reasoning as the final-transcript guard above: while the
+      // popup is open there's nothing to usefully show here, and this was
+      // the actual source of the brief "flash" of a word appearing in the
+      // field right around when the popup was open - an in-progress
+      // (not yet final) recognition result, most likely the mic hearing
+      // the app's own spoken answer/hint, was being written straight into
+      // the field with no check at all.
+      if (popup.style.display === 'flex') {
+        return
+      }
+
       // Show interim results visually
       userInput.value = interimTranscript.trim()
       // The overlay (not the native input) is what actually renders visible
